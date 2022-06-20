@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+</head>
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
+    <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css"> 
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
+</head>
+
+<body>
+
+    <!-- View Switcher (EC2/NACL/SG)-->
+    <div class="w3-container w3-padding-large">
+        <div class="w3-card-4 w3-padding-large">
+            <div class="w3-cell-row w3-padding-medium">
+                <div class="w3-container w3-blue-grey w3-cell" style="cursor: pointer; text-align: center;"" onclick="switchView('EC2')" id="init_view"><h3>EC2 Instances</h3></div>
+                <div class="w3-container w3-light-grey w3-cell" style="cursor: pointer; text-align: center;" onclick="switchView('NACL')"><h3>Network ACLs</h3></div>
+                <div class="w3-container w3-blue-grey w3-cell" style="cursor: pointer; text-align: center;" onclick="switchView('SG')"><h3>Security Groups</h3></div>
+            </div>
+
+            <br/>
+
+            <table id="inventory" class="w3-table-all">
+                <tbody id="inventory_body">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <hr/>
+    
+    <!-- Firewall Rule Table -->
+    <div class="w3-container w3-padding-large">
+        <div class="w3-card-4 w3-padding-large">
+            <div class="w3-cell-row w3-padding-medium">
+                <div class="w3-container w3-blue-grey w3-cell"><h4 style="text-align: center;">Associated AWS Firewall Rules</h4></div>
+            </div>
+
+            <br/>
+
+            <table id="fw_rules" class="w3-table-all">
+                <thead>
+                    <th>Metadata</th>
+                    <th>Action</th>
+                    <th>Source</th>
+                    <th>Destination</th>
+                    <th>Port</th>
+                </thead>
+                <tbody id="fw_rules_body">
+                </tbody>
+            </table>
+
+            <br/>
+
+            <div class="w3-container w3-light-grey">
+                <div class="w3-cell-row w3-padding-medium">
+                    <div class="w3-cell">
+                        <ul>
+                            <li><i class="fa-solid fa-circle-nodes"></i> : Security Group Entry</li>
+                            <li><i class="fa-solid fa-list-ol"></i> : Network ACL Entry</li>
+                        </ul>
+                    </div>
+                    <div class="w3-cell">
+                        <ul>
+                            <li><i class="fa-solid fa-arrow-down"></i> : Ingress Rule</li>
+                            <li><i class="fa-solid fa-arrow-up"></i> : Egress Rule</li>
+                        </ul>
+                    </div>
+                    <div class="w3-cell">
+                        <ul>
+                            <li><i class="fa-solid fa-circle-check action-allow"></i> : Allow Matches to Rule</li>
+                            <li><i class="fa-solid fa-circle-xmark action-deny"></i> : Deny Matches to Rule</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <hr/>
+
+    <!-- NACL/SG View Table -->
+    <div class="w3-container w3-padding-large">
+        <div class="w3-card-4 w3-padding-large">
+            <div class="w3-cell-row w3-padding-medium">
+                <div class="w3-container w3-blue-grey w3-cell"><h4 style="text-align: center;" id="nacl_sg_header"> </h4></div>
+            </div>
+
+            <br/>
+
+            <table id="nacl_sg_table" class="w3-table-all">
+                <tbody id="nacl_sg_table_body">
+                </tbody>
+            </table>
+
+        </div>
+    </div>
+    <script>
+
+        $(document).ready(function (){
+            $('#init_view').click()
+        });
+
+        
+        function clearRows(table){
+            $(`#${table} > tr`).remove();
+        }
+
+
+        function fillFirewallRulesTable(subnet, sg) {
+            clearRows('fw_rules_body')
+            // Columns are: Rule Info | Action | Source | Destination | Port
+            var sg_icon = '<i class="fa-solid fa-circle-nodes"></i>'
+            var nacl_icon = '<i class="fa-solid fa-list-ol"></i>'
+            var ingress_icon = '<i class="fa-solid fa-arrow-down"></i>'
+            var egress_icon = '<i class="fa-solid fa-arrow-up"></i>'
+            var action_allow = '<i class="fa-solid fa-circle-check action-allow"></i>'
+            var action_deny = '<i class="fa-solid fa-circle-xmark action-deny"></i>'
+            var action_icon = ''
+            
+
+            // Handle Security Group Rules first
+            $.ajax({url: `/api/search/securitygroup/${sg}`, type: 'GET', dataType: 'json', success: function(result) {
+                for (var entry of result.Ingress) {
+                    if (entry.Action == 'Allow') action_icon = action_allow
+                    else action_icon = action_deny
+                    $('#fw_rules > tbody:last-child').append(
+                        `<tr><td>${sg_icon} | ${ingress_icon}</td><td>${action_icon}</td><td>${entry.Src}</td><td>${entry.Dst}</td><td>${entry.Port}</td></tr>`
+                    )
+                }
+
+                for (var entry of result.Egress) {
+                    if (entry.Action == 'Allow') action_icon = action_allow
+                    else action_icon = action_deny
+                    $('#fw_rules > tbody:last-child').append(
+                        `<tr><td>${sg_icon} | ${egress_icon}</td><td>${action_icon}</td><td>${entry.Src}</td><td>${entry.Dst}</td><td>${entry.Port}</td></tr>`
+                    )
+                }
+
+            }})
+
+            // Then add in Network ACL rules
+            // These will have explicit deny for both ingress/egress
+            $.ajax({url: `/api/search/nacl/${subnet}`, type: 'GET', dataType: 'json', success: function(result) {
+                for (var entry of result.Ingress) {
+                    if (entry.Action == 'Allow') action_icon = action_allow
+                    else action_icon = action_deny
+                    $('#fw_rules > tbody:last-child').append(
+                        `<tr><td>${nacl_icon} | ${ingress_icon} | #${entry.RuleId}</td><td>${action_icon}</td><td>${entry.Src}</td><td>${entry.Dst}</td><td>${entry.Port}</td></tr>`
+                    )
+                }
+
+                for (var entry of result.Egress) {
+                    if (entry.Action == 'Allow') action_icon = action_allow
+                    else action_icon = action_deny
+                    $('#fw_rules > tbody:last-child').append(
+                        `<tr><td>${nacl_icon} | ${egress_icon} | #${entry.RuleId}</td><td>${action_icon}</td><td>${entry.Src}</td><td>${entry.Dst}</td><td>${entry.Port}</td></tr>`
+                    )
+                }
+            }})
+        }
+
+
+        function switchView(viewname){
+            clearRows('inventory_body')
+            // Construct table
+            switch (viewname) {
+                case 'EC2': {
+                    $('#inventory > tbody').append('<tr style="font-weight: bold;"><td>Instance Id</td><td>Private Ip</td><td>View Rules</td></tr>')
+                    // List ec2s and insert into the table
+                    $.ajax({url: '/api/list/instances', type: 'GET', dataType: 'json', success: function(result){
+                        for (var ec2 of result){
+                            $.ajax({url: `/api/search/instance/id/${ec2}`, type: 'GET', dataType: 'json', success: function(res){
+                                $('#inventory > tbody:last-child').append(`<tr><td>${ec2}</td><td>${res.PrivateIp}</td><td><i style="cursor: pointer;" class="fa-solid fa-magnifying-glass" onclick="fillFirewallRulesTable('${res.SubnetId}', '${res.SecurityGroup}')"></i></td></tr>`)
+                            }})
+                        }
+                    }})
+                    break;
+                }
+                case 'NACL': {
+                    $('#inventory > tbody').append('<tr style="font-weight: bold;"><td>Network ACL</td><td>Associated EC2s</td><td>View Instances</td></tr>')
+                    // List ec2s and insert into the table
+                    $.ajax({url: '/api/list/subnets', type: 'GET', dataType: 'json', success: function(result){
+                        for (var subnet of result){
+                            $.ajax({url: `/api/list/instances/subnet/${subnet}`, type: 'GET', dataType: 'json', success: function(res){
+                                $('#inventory > tbody:last-child').append(`<tr><td>${subnet}</td><td>${res.length}</td><td><i style="cursor: pointer;" class="fa-solid fa-rectangle-list" onclick="fillNaclSgTable('NACL', '${subnet}')"></i></td></tr>`)
+                            }})
+                        }
+                    }})
+                    break;
+                }
+                case 'SG': {
+                    $('#inventory > tbody').append('<tr style="font-weight: bold;"><td>Security Group</td><td>Associated EC2s</td><td>View Instances</td></tr>');
+                    // List ec2s and insert into the table
+                    $.ajax({url: '/api/list/securitygroups', type: 'GET', dataType: 'json', success: function(result){
+                        for (var sg of result){
+                            $.ajax({url: `/api/list/instances/securitygroup/${sg}`, type: 'GET', dataType: 'json', success: function(res){
+                                $('#inventory > tbody:last-child').append(`<tr><td>${sg}</td><td>${res.length}</td><td><i style="cursor: pointer;" class="fa-solid fa-rectangle-list" onclick="fillNaclSgTable('SG', '${sg}')""></i></td></tr>`)
+                            }})
+                        }
+                    }})
+                    break;
+                }
+            }
+            return null
+        }
+
+
+        function fillNaclSgTable(type, id){
+            clearRows('nacl_sg_table_body')
+            if (type == "SG") {
+                $('#nacl_sg_header').text(`Instances in Security Group: ${id}`)
+                $('#nacl_sg_table > tbody:last-child').append('<tr style="font-weight: bold;"><td>Instance Id</td><td>Private Ip</td><td>Subnet</td></tr>')
+                $.ajax({url: `/api/list/instances/securitygroup/${id}`, type: 'GET', dataType: 'json', success: function(result){
+                    for (var ec2 of result) {
+                        $.ajax({url: `/api/search/instance/id/${ec2}`, type: 'GET', dataType: 'json', success: function(res){
+                            $('#nacl_sg_table > tbody:last-child').append(`<tr><td>${res.InstanceId}</td><td>${res.PrivateIp}</td><td>${res.SubnetId}</td></tr>`)
+                        }})
+                    }
+                }});
+            }
+            else if (type == "NACL") {
+                $('#nacl_sg_header').text(`Instances in Subnet: ${id}`)
+                $('#nacl_sg_table > tbody:last-child').append('<tr style="font-weight: bold;"><td>Instance Id</td><td>Private Ip</td><td>Security Group</td></tr>')
+                $.ajax({url: `/api/list/instances/subnet/${id}`, type: 'GET', dataType: 'json', success: function(result){
+                    for (var ec2 of result) {
+                        $.ajax({url: `/api/search/instance/id/${ec2}`, type: 'GET', dataType: 'json', success: function(res){
+                            $('#nacl_sg_table > tbody:last-child').append(`<tr><td>${res.InstanceId}</td><td>${res.PrivateIp}</td><td>${res.SecurityGroup}</td></tr>`)
+                        }})
+                    }
+                }});   
+            }
+        }
+
+
+    </script>
+    
+    <style>
+        .action-allow {
+            color:green;
+        }
+         
+        .action-deny {
+            color:red;
+        }
+    </style>
+
+</body>

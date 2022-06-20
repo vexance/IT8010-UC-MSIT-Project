@@ -1,0 +1,6 @@
+argparse
+boto3
+bottle
+getpass
+sqlite3
+termcolor
