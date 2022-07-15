@@ -17,7 +17,7 @@ An Amazon Web Services (AWS) Elastic Cloud Compute (EC2) Network Access Control 
 ---
 
 ## Usage
-This program is intended to be run through a command line interface (CLI) in two phases: ingestion and analysis. The ingestion phase consistis executing the configuration collector script, `collector.py`, while supplying valid AWS programmatic credentials. The collector script will scrape data from the AWS Application Programming Interfaces (APIs) and write information into a local Sqlite database. The user then executes the `server.py` script, which initiates a web application listening on the loopback interface on Transmission Control Protocol (TCP) port 8000. The user may then navigate to the web application in a browser to explore configuration scraping results.
+This program is intended to be run through a command line interface (CLI) in two phases: ingestion and analysis. The ingestion phase consistis executing the configuration collector script, `collector.py`, while supplying valid AWS programmatic credentials (i.e., an access key). The collector script will scrape data from the AWS Application Programming Interfaces (APIs) and write information into a local Sqlite database. The user then executes the `server.py` script, which initiates a web application listening on the loopback interface on Transmission Control Protocol (TCP) port 8000. The user may then navigate to the web application in a browser to explore configuration scraping results.
 
 ~~~
 user@ubuntu:~: python3 -m pip install -r requirements.txt
